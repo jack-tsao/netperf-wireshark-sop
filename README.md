@@ -8,11 +8,13 @@ Capture and analyze TCP_RR and TCP_CRR network performance between two machines 
 
 ## Prerequisites
 
-- Linux server and Linux or Windows client connected via Ethernet
+- Two Linux machines (server and client) connected via Ethernet
 - `netperf` installed on both (`apt install netperf` or `yum install netperf`)
 - `tcpdump` installed on the client (`apt install tcpdump`)
-- Wireshark installed on the client or a separate machine for analysis
+- Wireshark installed on the client or a separate machine (Linux or Windows) for analysis
 - Ethernet cable(s) and optionally a switch
+
+> **Note:** Both server and client must run Linux since NetPerf and tcpdump are Linux tools. A Windows machine can be used as a third machine for Wireshark analysis only.
 
 ---
 
@@ -40,7 +42,7 @@ sudo ip addr add 192.168.20.3/24 dev <interface_name>
 sudo ip link set <interface_name> up
 ```
 
-**If the client is Windows**, go to Settings → Network & Internet → Ethernet → Edit IP settings → Manual → IPv4 On:
+**If using a Windows machine for Wireshark analysis** and it needs a static IP on the same network, go to Settings → Network & Internet → Ethernet → Edit IP settings → Manual → IPv4 On:
 
 - IP: `192.168.20.3`
 - Subnet: `255.255.255.0`
@@ -68,7 +70,7 @@ Note the IP addresses assigned to each machine.
 ping <server_ip>
 ```
 
-If pinging from Linux to Windows fails, disable Windows Firewall for ICMP or run on Windows (as Administrator):
+If pinging a Windows machine fails, run on that Windows machine (as Administrator):
 
 ```cmd
 netsh advfirewall firewall add rule name="Allow ICMPv4" protocol=icmpv4:8,any dir=in action=allow
@@ -98,14 +100,12 @@ On the **client** machine, start the packet capture before running any tests:
 
 ```bash
 sudo tcpdump -i <interface_name> -w /tmp/capture.pcap -s 0 &
-TCPDUMP_PID=$!
 ```
 
 - `-i <interface_name>`: the Ethernet interface (e.g., `eno1`, `enp0s31f6`)
 - `-w /tmp/capture.pcap`: output file path
 - `-s 0`: capture full packets (no truncation)
 - `&`: run in background
-- `TCPDUMP_PID=$!`: save the process ID so you can stop it cleanly later
 
 ---
 
@@ -140,11 +140,13 @@ netperf -H <server_ip> -t TCP_CRR -l 60
 
 ## 5. Stop the Capture
 
-Stop the tcpdump process using the saved PID:
+Stop tcpdump:
 
 ```bash
-sudo kill -INT "$TCPDUMP_PID"
+sudo pkill tcpdump
 ```
+
+> **Note:** Make sure no other tcpdump instances are running on this machine before using `pkill`. If unsure, check with `ps aux | grep tcpdump` first.
 
 Verify the capture file exists:
 
