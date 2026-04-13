@@ -1,33 +1,5 @@
 # SOP: NetPerf TCP Performance Capture & Analysis with Wireshark
 
-*Last Updated: April 13, 2026*
-
-## Table of Contents
-- [SOP: NetPerf TCP Performance Capture \& Analysis with Wireshark](#sop-netperf-tcp-performance-capture--analysis-with-wireshark)
-  - [Table of Contents](#table-of-contents)
-  - [Purpose](#purpose)
-  - [Prerequisites](#prerequisites)
-  - [1. Network Setup](#1-network-setup)
-    - [Option A: Connected Through a Switch (No DHCP)](#option-a-connected-through-a-switch-no-dhcp)
-    - [Option B: Connected Through a Router (DHCP)](#option-b-connected-through-a-router-dhcp)
-    - [Verify Connectivity](#verify-connectivity)
-  - [2. Start NetPerf Server](#2-start-netperf-server)
-  - [3. Capture Traffic with tcpdump](#3-capture-traffic-with-tcpdump)
-  - [4. Run NetPerf Tests](#4-run-netperf-tests)
-    - [Understanding the Tests](#understanding-the-tests)
-  - [5. Stop the Capture](#5-stop-the-capture)
-  - [6. Open the Capture in Wireshark](#6-open-the-capture-in-wireshark)
-  - [7. Analyze in Wireshark](#7-analyze-in-wireshark)
-    - [View All New Connections (SYN packets)](#view-all-new-connections-syn-packets)
-    - [View a Single Connection](#view-a-single-connection)
-    - [Change Time Display Format](#change-time-display-format)
-    - [Check for Problems](#check-for-problems)
-    - [Useful Statistics](#useful-statistics)
-  - [8. Command-Line Analysis with tshark (Optional)](#8-command-line-analysis-with-tshark-optional)
-  - [Notes](#notes)
-
----
-
 ## Purpose
 
 Capture and analyze TCP_RR and TCP_CRR network performance between two machines using NetPerf, tcpdump, and Wireshark. This procedure helps identify connection-level latency bottlenecks (e.g., SYN→SYN-ACK timing) when comparing boards or NIC controllers.
@@ -36,7 +8,7 @@ Capture and analyze TCP_RR and TCP_CRR network performance between two machines 
 
 ## Prerequisites
 
-- Two Linux machines (server and client) connected via Ethernet
+- Linux server and Linux or Windows client connected via Ethernet
 - `netperf` installed on both (`apt install netperf` or `yum install netperf`)
 - `tcpdump` installed on the client (`apt install tcpdump`)
 - Wireshark installed on the client or a separate machine for analysis
@@ -64,13 +36,13 @@ sudo ip link set <interface_name> up
 **On the client:**
 
 ```bash
-sudo ip addr add 192.168.20.2/24 dev <interface_name>
+sudo ip addr add 192.168.20.3/24 dev <interface_name>
 sudo ip link set <interface_name> up
 ```
 
 **If the client is Windows**, go to Settings → Network & Internet → Ethernet → Edit IP settings → Manual → IPv4 On:
 
-- IP: `192.168.20.2`
+- IP: `192.168.20.3`
 - Subnet: `255.255.255.0`
 - Gateway: leave blank
 - DNS: leave blank
@@ -93,7 +65,7 @@ Note the IP addresses assigned to each machine.
 
 ```bash
 # From the client, ping the server
-ping 192.168.20.1
+ping <server_ip>
 ```
 
 If pinging from Linux to Windows fails, disable Windows Firewall for ICMP or run on Windows (as Administrator):
@@ -126,12 +98,14 @@ On the **client** machine, start the packet capture before running any tests:
 
 ```bash
 sudo tcpdump -i <interface_name> -w /tmp/capture.pcap -s 0 &
+TCPDUMP_PID=$!
 ```
 
 - `-i <interface_name>`: the Ethernet interface (e.g., `eno1`, `enp0s31f6`)
 - `-w /tmp/capture.pcap`: output file path
 - `-s 0`: capture full packets (no truncation)
 - `&`: run in background
+- `TCPDUMP_PID=$!`: save the process ID so you can stop it cleanly later
 
 ---
 
@@ -166,15 +140,10 @@ netperf -H <server_ip> -t TCP_CRR -l 60
 
 ## 5. Stop the Capture
 
-```bash
-# Bring tcpdump back to foreground and stop it
-sudo kill %1
-```
-
-Or if that doesn't work:
+Stop the tcpdump process using the saved PID:
 
 ```bash
-sudo pkill tcpdump
+sudo kill -INT "$TCPDUMP_PID"
 ```
 
 Verify the capture file exists:
